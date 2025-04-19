@@ -63,6 +63,8 @@ down_dify() {
 
 # Alias to list processes (requires sudo, be careful)
 alias lsps="sudo python3 \"$SCRIPT_ROOT/lsps.py\""
+alias lsg="sudo python3 \"$SCRIPT_ROOT/lsgroup.py\""
+alias lsug="sudo python3 \"$SCRIPT_ROOT/lsuser_sgroup.py\""
 
 # Function to switch the 'python' alias (Use with caution!)
 # Example: setpy /usr/bin/python3.9
@@ -227,13 +229,13 @@ alias hfdownload="$SCRIPT_ROOT/hf-fast.sh"
 
 echo "-----------------------------------------------------"
 echo " Bash environment initialized. Key commands:"
-echo "   GPU/System: selectgpu, lsps, envok, gput"
+echo "   GPU/System: selectgpu, lsps,lsg,lsug, envok, gput"
 echo "   Dify Mgmt:  start_dify, update_dify, down_dify"
 echo "   Dev Tools:  tb, setpy (use carefully!)"
 echo "   Network:    fq, fqlog, forwardport <user@host> [remote_port]"
 echo "   File/Nav:   findname <pattern>, cdp, findinfiles <pattern>"
 echo "   Sync:       pull_s_a800t, rsync_pull <src> <dest>"
-echo "   Package/Env: U <package>, sx, conda env list"
+echo "   Package/Env: U <package>, sx"
 echo "   Misc:       startA, sj, serv, hfdownload"
 echo "-----------------------------------------------------"
 

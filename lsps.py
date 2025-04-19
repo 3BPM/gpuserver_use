@@ -13,7 +13,7 @@ def get_process_info(pid=None, cmd_name=None, proc_name=None):
     返回：
         list: 包含匹配进程信息的列表
     """
-    
+
     processes = []
     for proc in psutil.process_iter(['pid', 'name', 'username', 'cmdline', 'cwd']):
         try:
@@ -93,11 +93,11 @@ def print_listening_ports(ports):
 def main():
     # 设置命令行参数解析
     parser = argparse.ArgumentParser(description="通过 PID、命令名或进程名查找进程")
-    parser.add_argument("-p", "--pid", type=int, help="进程 ID")
+    parser.add_argument("-id", "--pid", type=int, help="进程 ID")
     parser.add_argument("-c", "--cmd", type=str, help="命令名或命令行的一部分")
     parser.add_argument("-n", "--name", type=str, help="进程名")
     # 修改 -l 参数，使其可以接受可选的端口号
-    parser.add_argument("-l", "--listening", nargs='?', const=True, type=int, 
+    parser.add_argument("-p", "--listening_port", nargs='?', const=True, type=int,
                        help="查看监听的端口。不带参数时显示所有端口，带数字参数时显示指定端口的进程信息")
     args = parser.parse_args()
 
