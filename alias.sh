@@ -1,94 +1,242 @@
-# 定义脚本根目录变量
-SCRIPT_ROOT="/home/jinyue/s"
-# 设置镜像加速（国内用户建议添加）
+# ~/.bashrc - Custom Bash Configuration
+
+# --- Basic Setup ---
+
+# Define script root directory relative to home
+# Using $HOME makes it portable across different usernames
+SCRIPT_ROOT="$HOME/s"
+
+# Set Hugging Face endpoint mirror (recommended for users in China)
 export HF_ENDPOINT=https://hf-mirror.com
-# 定义别名，用于选择最闲的 GPU
-alias selectgpu="source $SCRIPT_ROOT/select_best_gpu.sh"
-echo '选择最闲 GPU: selectgpu'
+
+# --- GPU Selection ---
+
+# Alias to source the script that selects the least busy GPU
+alias selectgpu="source \"$SCRIPT_ROOT/select_best_gpu.sh\""
+echo "[Info] Select least busy GPU using: selectgpu"
+
+# --- Common Application Starters ---
+
+# Alias to start AgentUI
 alias startA="$SCRIPT_ROOT/agentui/start.sh"
-  #覆盖
 
+# --- Dify Management Functions ---
 
-# 定义其他别名
-alias lsps="sudo python3 $SCRIPT_ROOT/lsps.py"
-选py() {
+# Function to start Dify services in detached mode
+start_dify() {
+    echo "Starting Dify services..."
+    if command cd "$HOME/build/dify/docker"; then
+        docker compose up -d
+    else
+        echo "Error: Could not change directory to $HOME/build/dify/docker" >&2
+        return 1
+    fi
+}
+
+# Function to update Dify: stop, pull changes, pull images, restart
+update_dify() {
+    echo "Updating Dify..."
+    if command cd "$HOME/build/dify/docker"; then
+        docker compose down && \
+        git pull origin main && \
+        docker compose pull && \
+        docker compose up -d
+        echo "Dify update complete."
+    else
+        echo "Error: Could not change directory to $HOME/build/dify/docker" >&2
+        return 1
+    fi
+}
+
+# Function to stop and remove Dify containers/networks
+down_dify() {
+    echo "Stopping Dify services..."
+    if command cd "$HOME/build/dify/docker"; then
+        docker compose down
+    else
+        echo "Error: Could not change directory to $HOME/build/dify/docker" >&2
+        return 1
+    fi
+}
+
+# --- Development & Monitoring Tools ---
+
+# Alias to list processes (requires sudo, be careful)
+alias lsps="sudo python3 \"$SCRIPT_ROOT/lsps.py\""
+
+# Function to switch the 'python' alias (Use with caution!)
+# Example: setpy /usr/bin/python3.9
+# Warning: Overriding the default 'python' can break system scripts.
+# Consider using virtual environments (conda, venv) instead.
+setpy() {
+    if [[ -z "$1" ]]; then
+        echo "Usage: setpy /path/to/python/executable" >&2
+        return 1
+    fi
+    if [[ ! -x "$1" ]]; then
+         echo "Error: '$1' is not an executable file." >&2
+         return 1
+    fi
     alias python="$1"
-    echo "Python 已切换到: $1"
+    echo "Python alias temporarily set to: $1"
+    echo "Note: This only affects the current shell session."
 }
-start_dify(){
-	cd ~/build/dify/docker
-	docker compose up -d
-}
-update_dify(){
-	cd ~/build/dify/docker
-docker compose down
-git pull origin main
-docker compose pull
-docker compose up -d
-}
-down_dify(){
- cd ~/build/dify/docker
-docker compose down
 
-}
-#给我写一个函数在bashrc里面 输入logdir 启动tensorboard 如果端口被占用 则自动加一 直到未被占用，然后返回端口  tb(){
+
+# Function to launch TensorBoard, finding an available port
+# Usage: tb [log_directory] [start_port]
+# Example: tb ./my_logs 8000
+# Example: tb # uses ./logs and port 7777
 tb() {
-    local port=${2:-7777}  # 默认端口7777，可传入参数覆盖
-    local logdir=${1:-"./logs"}  # 默认日志目录./logs，可传入参数覆盖
-    
-    # 检测端口是否被占用
-    while netstat -ano | grep -q ":$port "; do
+    local logdir="${1:-./logs}" # Default log directory: ./logs
+    local port="${2:-7777}"   # Default start port: 7777
+    local max_attempts=100
+    local attempts=0
+
+    # Check if log directory exists
+    if [[ ! -d "$logdir" ]]; then
+        echo "Warning: Log directory '$logdir' does not exist. Creating it."
+        mkdir -p "$logdir" || { echo "Error: Failed to create log directory '$logdir'" >&2; return 1; }
+    fi
+
+    # Find an available port using 'ss' (more modern than netstat)
+    # ss -Htan 'sport = :port' checks for listening TCP sockets on the specified port
+    while ss -Htan "sport = :$port" | grep -q 'LISTEN' && [ $attempts -lt $max_attempts ]; do
         echo "Port $port is occupied, trying next port..."
         ((port++))
+        ((attempts++))
     done
-    
+
+    if [ $attempts -ge $max_attempts ]; then
+        echo "Error: Could not find an available port after $max_attempts attempts." >&2
+        return 1
+    fi
+
     echo "Starting TensorBoard on port $port with logdir: $logdir"
-    tensorboard --logdir "$logdir" --port "$port" &
-    echo "TensorBoard started at http://localhost:$port"
-    
-    return $port  # 返回最终使用的端口号
+    # Run in background, redirect stdout/stderr to /dev/null to avoid cluttering terminal
+    tensorboard --logdir "$logdir" --port "$port" > /dev/null 2>&1 &
+    # Give it a moment to start
+    sleep 1
+    echo "TensorBoard launched in background. Access at: http://localhost:$port"
+    # If you need to capture the port number in a script, use command substitution:
+    # local_port=$(tb mylogs 8000; echo $?) # This captures the function's *exit status*
+    # To get the *port number* itself, the function would need to echo it as the *last* thing it does.
+    # For interactive use, printing the URL is usually sufficient.
 }
 
-#docker compose down
-#git pull origin main
- #docker compose pull
-alias envok="python $SCRIPT_ROOT/envok.py"
-echo '看看lsps 检查环境是否正常: envok'
-alias 文件内找="ack -l "
-# alias python="python3"
-alias gput="python $SCRIPT_ROOT/torchgputest.py"
+# Alias to check environment using a custom script
+alias envok="python3 \"$SCRIPT_ROOT/envok.py\""
+echo "[Info] Check environment status using: envok"
+
+# Alias for ack (better grep for code) - find files containing pattern
+# Consider 'grep -rl PATTERN .' as a fallback if ack isn't installed
+alias findinfiles="ack -l" # Renamed from 文件内找
+
+# Alias for quick PyTorch GPU test
+alias gput="python3 \"$SCRIPT_ROOT/torchgputest.py\""
+
+# Alias for custom network (?) script
 alias fq="$SCRIPT_ROOT/fq.sh"
-alias sx="source ~/.bashrc"
 
+# Alias to view log file for fq script
+alias fqlog="cat \"$SCRIPT_ROOT/fanqiang/logfanqiang\""
 
-alias U="pip install --upgrade"
+# Alias for custom 'suji' script
 alias sj="$SCRIPT_ROOT/suji.sh"
-alias serv="$SCRIPT_ROOT/server.sh"
-alias fqlog="cat $SCRIPT_ROOT/fanqiang/logfanqiang"
-alias crlaunchjson="selectgpu && $SCRIPT_ROOT/envlaunch.sh"
+
+# Alias for custom server script
+alias serv="python -m http.server 8000 >> logserver 2>&1 &"
+
+
+# Alias to run environment launch script after selecting GPU
+alias crlaunchjson="selectgpu && \"$SCRIPT_ROOT/envlaunch.sh\""
+
+# Function to forward a remote port via SSH, finding an available local port
+# Usage: forwardport user@hostname [remote_port] [start_local_port]
+# Example: forwardport myuser@remote.server 8080 9000
 forwardport() {
-  local remote_port="${2:-80}"
-  local hostname="$1"
-  local local_port="$remote_port"
+    local remote_host="$1"
+    local remote_port="${2:-80}"  # Default remote port 80
+    local local_port="${3:-$remote_port}" # Default local port matches remote, or use provided start
+    local max_attempts=100
+    local attempts=0
 
-  while netstat -tuln | grep ":$local_port " > /dev/null; do
-    local_port=$((local_port + 1))
-  done
+    if [[ -z "$remote_host" ]]; then
+        echo "Usage: forwardport user@hostname [remote_port] [start_local_port]" >&2
+        return 1
+    fi
 
-  ssh -L "$local_port:0.0.0.0:$remote_port" "$hostname" &
-  echo "Forwarding remote port $remote_port of $hostname to local port $local_port"
+    # Find an available local port
+    while ss -Htan "sport = :$local_port" | grep -q 'LISTEN' && [ $attempts -lt $max_attempts ]; do
+        ((local_port++))
+        ((attempts++))
+    done
+
+     if [ $attempts -ge $max_attempts ]; then
+        echo "Error: Could not find an available local port after $max_attempts attempts." >&2
+        return 1
+    fi
+
+    echo "Attempting to forward remote port $remote_port on $remote_host to local port $local_port..."
+    ssh -f -N -L "$local_port:127.0.0.1:$remote_port" "$remote_host"
+
+    # Check if ssh tunnel was established successfully (basic check)
+    if [ $? -eq 0 ]; then
+       echo "Successfully forwarded remote $remote_host:$remote_port to local http://localhost:$local_port"
+       echo "SSH tunnel running in the background. Use 'pkill -f \"ssh -f -N -L $local_port:127.0.0.1:$remote_port $remote_host\"' to stop it."
+    else
+       echo "Error: Failed to establish SSH tunnel." >&2
+       return 1
+    fi
 }
-alias f="find . -name "
-alias 实际="cd -P ."
-echo -e '常用命令: tb =tensorboard 实际 文件内找fq fqlog sj serv startA \n pip升级 U,source刷新 sx ;start update dify\n  f= find . -name "*tutorial*"'
 
 
-alias pull_="rsync -av -e ssh"
-alias pull_s="rsync -av -e ssh a800t:~/s ~/ && sx"
-echo -e 'pull_ a800t:~ . pull_s crlaunchjson\n'
+# --- File System & Navigation ---
+
+# Alias for find: find file by name in current directory downwards
+# Usage: findname '*pattern*'
+alias findname="find . -name" # Renamed from f
+
+# Alias to change to the real physical directory (resolving symlinks)
+alias cdp="command cd -P ." # Renamed from 实际
 
 
-export HF_ENDPOINT=https://hf-mirror.com
+# --- Package & Environment Management ---
+
+# Alias to shorten pip upgrade
+alias U="pip install --upgrade"
+
+# Alias to reload .bashrc configuration
+alias sx="source ~/.bashrc"
+echo "[Info] Reload configuration using: sx"
+
+# --- Remote Operations (rsync/ssh) ---
+
+# Base rsync alias (might be more useful as a function if arguments vary)
+alias rsync_pull="rsync -avz --progress -e ssh" # Added compression and progress
+# Example Usage: rsync_pull user@host:/remote/path /local/path
+
+# Specific alias to pull 's' directory from 'a800t' and reload bashrc
+alias pull_s_a800t="rsync -avz --progress -e ssh a800t:~/s/ \"$HOME/s/\" && sx" # Note trailing slashes for directory content sync
+echo "[Info] Pull ~/s from a800t and reload: pull_s_a800t"
+
+# --- Hugging Face Downloader ---
 alias hfdownload="$SCRIPT_ROOT/hf-fast.sh"
 
+# --- Startup Information ---
+
+echo "-----------------------------------------------------"
+echo " Bash environment initialized. Key commands:"
+echo "   GPU/System: selectgpu, lsps, envok, gput"
+echo "   Dify Mgmt:  start_dify, update_dify, down_dify"
+echo "   Dev Tools:  tb, setpy (use carefully!)"
+echo "   Network:    fq, fqlog, forwardport <user@host> [remote_port]"
+echo "   File/Nav:   findname <pattern>, cdp, findinfiles <pattern>"
+echo "   Sync:       pull_s_a800t, rsync_pull <src> <dest>"
+echo "   Package/Env: U <package>, sx, conda env list"
+echo "   Misc:       startA, sj, serv, hfdownload"
+echo "-----------------------------------------------------"
+
+# List conda environments on shell startup (can be slow, uncomment if needed)
+# echo "Available Conda environments:"
 conda env list
