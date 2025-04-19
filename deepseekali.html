@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <title>智能对话助手</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --ai-bg: #f0f4ff;
+            --user-bg: #4a90e2;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        #chat-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        #chat {
+            height: 60vh;
+            padding: 20px;
+            overflow-y: auto;
+            background: linear-gradient(to bottom, #f9f9f9, #fff);
+        }
+
+        /* 自定义滚动条 */
+        #chat::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #chat::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        #chat::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 4px;
+        }
+
+        .message {
+            display: flex;
+            margin: 12px 0;
+        }
+
+        .user {
+            justify-content: flex-end;
+        }
+
+        .ai {
+            justify-content: flex-start;
+        }
+
+        .bubble {
+            max-width: 70%;
+            padding: 12px 18px;
+            border-radius: 20px;
+            line-height: 1.5;
+            word-break: break-word;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .user .bubble {
+            background: var(--user-bg);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .ai .bubble {
+            background: var(--ai-bg);
+            color: var(--text-color);
+            border-bottom-left-radius: 4px;
+        }
+
+        #input-container {
+            display: flex;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border-top: 1px solid #eee;
+        }
+
+        #input {
+            flex: 1;
+            padding: 12px 20px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            font-size: 16px;
+            margin-right: 12px;
+            transition: all 0.3s ease;
+        }
+
+        #input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 8px rgba(74, 144, 226, 0.2);
+        }
+
+        button {
+            padding: 12px 24px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background: #357abd;
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .loading-dots:after {
+            content: '...';
+            animation: dots 1s steps(5, end) infinite;
+            display: inline-block;
+        }
+
+        @keyframes dots {
+
+            0%,
+            20% {
+                content: '.';
+            }
+
+            40% {
+                content: '..';
+            }
+
+            60%,
+            100% {
+                content: '...';
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="chat-container">
+        <div id="chat"></div>
+        <div id="input-container"> <input type="text" id="input" placeholder="输入您的问题..."> <button
+                onclick="sendMessage()">发送</button> </div>
+    </div>
+    <script>
+        // 替换为你的API密钥（注意：前端暴露密钥不安全，仅供测试）
+        const API_KEY = 'sk-ae1739ca380c4563b84680fd1e03e6a6';
+
+        function appendMessage(role, content) {
+            const chat = document.getElementById('chat');
+            const div = document.createElement('div');
+            div.className = role;
+            div.textContent = `${role === 'user' ? '你' : 'AI'}: ${content}`;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight; // 自动滚动到底部
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            input.value = '';
+            appendMessage('user', message);
+
+            try {
+                const response = await fetch(
+                    'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${API_KEY}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: "deepseek-r1",
+                            messages: [{ role: "user", content: message }],
+                            stream: true
+                        })
+                    }
+                );
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let aiResponse = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n').filter(line => line.trim());
+
+                    for (const line of lines) {
+                        // Skip empty lines and [DONE]
+                        if (line === '[DONE]') continue;
+                        if (!line.startsWith('data: ')) continue;
+
+                        try {
+                            // Remove 'data: ' prefix and parse JSON
+                            const jsonStr = line.substring(6);
+                            // Skip if empty after removing prefix
+                            if (!jsonStr.trim()) continue;
+
+                            const data = JSON.parse(jsonStr);
+
+                            // Check if this is the final usage stats message
+                            if (!data.choices?.length) continue;
+                            const choice = data.choices[0];
+
+                            // Handle finish message
+                            if (choice.finish_reason === 'stop') {
+                                appendMessage('ai', aiResponse);
+                                continue;
+                            }
+
+                            // Get content from delta
+                            const content = choice.delta?.content || '';
+                            aiResponse += content;
+
+                            // 更新最后一条AI消息
+                            const aiMessages = document.getElementsByClassName('ai');
+                            const lastAiMessage = aiMessages[aiMessages.length - 1];
+                            if (lastAiMessage) {
+                                lastAiMessage.textContent = `AI: ${aiResponse}`;
+                            } else {
+                                appendMessage('ai', aiResponse);
+                            }
+                        } catch (e) {
+                            console.error('解析错误:', e);
+                            // Skip any JSON parse errors and continue
+                            continue;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('请求失败:', error);
+                appendMessage('ai', '请求出错，请查看控制台');
+            }
+        }
+        // 回车发送消息
+        document.getElementById('input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+    </script>
+    <!-- <script> // API配置（注意：生产环境请使用后端代理） const API_KEY = 'sk-ae1739ca380c4563b84680fd1e03e6a6'; function createMessageElement(role, content) { const chat = document.getElementById('chat'); const messageDiv = document.createElement('div'); messageDiv.className = `message ${role}`; const bubble = document.createElement('div'); bubble.className = 'bubble'; bubble.textContent = content; messageDiv.appendChild(bubble); chat.appendChild(messageDiv); chat.scrollTop = chat.scrollHeight; return bubble; } async function sendMessage() { const input = document.getElementById('input'); const message = input.value.trim(); if (!message) return; input.value = ''; createMessageElement('user', message); // 创建加载状态 const loadingBubble = createMessageElement('ai', '思考中'); loadingBubble.classList.add('loading-dots'); try { const response = await fetch( 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: "deepseek-r1", messages: [{ role: "user", content: message }], stream: true }) } ); // 移除加载状态 loadingBubble.remove(); const reader = response.body.getReader(); const decoder = new TextDecoder(); let aiResponse = ''; let aiBubble = createMessageElement('ai', ''); while (true) { const { done, value } = await reader.read(); if (done) break; const chunk = decoder.decode(value); const lines = chunk.split('\n').filter(line => line.trim()); for (const line of lines) { if (line === '[DONE]' || !line.startsWith('data: ')) continue; try { const data = JSON.parse(line.substring(6)); if (!data.choices?.length) continue; const content = data.choices[0].delta?.content || ''; aiResponse += content; aiBubble.textContent = aiResponse; aiBubble.scrollIntoView({ behavior: 'smooth' }); } catch (e) { console.error('解析错误:', e); } } } } catch (error) { console.error('请求失败:', error); createMessageElement('ai', '请求出错，请稍后重试'); } } // 回车发送 document.getElementById('input').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); }); </script> -->
+</body>
+
+<!-- </html>
+ ``` 主要改进点： 1. 视觉设计： - 采用现代简约风格，添加阴影和圆角 - 更美观的消息气泡设计 - 渐变色背景和更合理的配色方案 - 自定义滚动条样式 2. 交互优化： - 输入时的加载动画 - 更平滑的滚动效果 -
+按钮悬停动画 - 输入框聚焦效果 3. 响应式布局： - 自动适应不同屏幕尺寸 - 合理的最大宽度限制 - 更智能的消息换行处理 4. 代码优化： - CSS变量方便主题定制 - 更好的代码组织结构 - 更稳妥的错误处理 - 删除冗余代码
+5. 新功能： - 加载中的动态指示 - 自动滚动保持对话可见 - 更自然的动画过渡效果 使用说明： 1. 输入消息后按回车或点击发送按钮 2. AI响应会以流式传输，逐渐显示内容 3. 等待响应时会显示loading动画 4.
+支持移动端触屏操作 5. 自带基本的错误处理提示 可以根据需要修改CSS变量(--primary-color等)来自定义配色方案。这个版本在保持功能完整的同时，提供了更好的用户体验和视觉效果。
+AI: 以下是一个改进后的UI设计，增加了现代感、阴影、圆角和更好的交互效果： ```html
+<!DOCTYPE html>
+<html lang="zh-CN"> -->
+<!-- 
+<head>
+    <title>智能对话助手</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --ai-bg: #f0f4ff;
+            --user-bg: #4a90e2;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        #chat-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        #chat {
+            height: 60vh;
+            padding: 20px;
+            overflow-y: auto;
+            background: linear-gradient(to bottom, #f9f9f9, #fff);
+        }
+
+        /* 自定义滚动条 */
+        #chat::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #chat::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        #chat::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 4px;
+        }
+
+        .message {
+            display: flex;
+            margin: 12px 0;
+        }
+
+        .user {
+            justify-content: flex-end;
+        }
+
+        .ai {
+            justify-content: flex-start;
+        }
+
+        .bubble {
+            max-width: 70%;
+            padding: 12px 18px;
+            border-radius: 20px;
+            line-height: 1.5;
+            word-break: break-word;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .user .bubble {
+            background: var(--user-bg);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .ai .bubble {
+            background: var(--ai-bg);
+            color: var(--text-color);
+            border-bottom-left-radius: 4px;
+        }
+
+        #input-container {
+            display: flex;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border-top: 1px solid #eee;
+        }
+
+        #input {
+            flex: 1;
+            padding: 12px 20px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            font-size: 16px;
+            margin-right: 12px;
+            transition: all 0.3s ease;
+        }
+
+        #input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 8px rgba(74, 144, 226, 0.2);
+        }
+
+        button {
+            padding: 12px 24px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background: #357abd;
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .loading-dots:after {
+            content: '...';
+            animation: dots 1s steps(5, end) infinite;
+            display: inline-block;
+        }
+
+        @keyframes dots {
+
+            0%,
+            20% {
+                content: '.';
+            }
+
+            40% {
+                content: '..';
+            }
+
+            60%,
+            100% {
+                content: '...';
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="chat-container">
+        <div id="chat"></div>
+        <div id="input-container"> <input type="text" id="input" placeholder="输入您的问题..."> <button
+                onclick="sendMessage()">发送</button> </div>
+    </div>
+    <script> // API配置（注意：生产环境请使用后端代理） const API_KEY = 'sk-ae1739ca380c4563b84680fd1e03e6a6'; function createMessageElement(role, content) { const chat = document.getElementById('chat'); const messageDiv = document.createElement('div'); messageDiv.className = `message ${role}`; const bubble = document.createElement('div'); bubble.className = 'bubble'; bubble.textContent = content; messageDiv.appendChild(bubble); chat.appendChild(messageDiv); chat.scrollTop = chat.scrollHeight; return bubble; } async function sendMessage() { const input = document.getElementById('input'); const message = input.value.trim(); if (!message) return; input.value = ''; createMessageElement('user', message); // 创建加载状态 const loadingBubble = createMessageElement('ai', '思考中'); loadingBubble.classList.add('loading-dots'); try { const response = await fetch( 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: "deepseek-r1", messages: [{ role: "user", content: message }], stream: true }) } ); // 移除加载状态 loadingBubble.remove(); const reader = response.body.getReader(); const decoder = new TextDecoder(); let aiResponse = ''; let aiBubble = createMessageElement('ai', ''); while (true) { const { done, value } = await reader.read(); if (done) break; const chunk = decoder.decode(value); const lines = chunk.split('\n').filter(line => line.trim()); for (const line of lines) { if (line === '[DONE]' || !line.startsWith('data: ')) continue; try { const data = JSON.parse(line.substring(6)); if (!data.choices?.length) continue; const content = data.choices[0].delta?.content || ''; aiResponse += content; aiBubble.textContent = aiResponse; aiBubble.scrollIntoView({ behavior: 'smooth' }); } catch (e) { console.error('解析错误:', e); } } } } catch (error) { console.error('请求失败:', error); createMessageElement('ai', '请求出错，请稍后重试'); } } // 回车发送 document.getElementById('input').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); }); </script>
+</body>
+
+</html> -->
