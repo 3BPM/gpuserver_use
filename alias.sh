@@ -130,9 +130,7 @@ tb() {
 alias envok="python3 \"$SCRIPT_ROOT/envok.py\""
 echo "[Info] Check environment status using: envok"
 
-# Alias for ack (better grep for code) - find files containing pattern
-# Consider 'grep -rl PATTERN .' as a fallback if ack isn't installed
-alias findinfiles="ack -l" # Renamed from 文件内找
+
 
 # Alias for quick PyTorch GPU test
 alias gput="python3 \"$SCRIPT_ROOT/torchgputest.py\""
@@ -199,9 +197,13 @@ forwardport() {
 # Usage: findname '*pattern*'
 alias findname="find . -name" # Renamed from f
 
-# Alias to change to the real physical directory (resolving symlinks)
-alias cdp="command cd -P ." # Renamed from 实际
+# Alias for ack (better grep for code) - find files containing pattern
+# Consider 'grep -rl PATTERN .' as a fallback if ack isn't installed
+alias findinfiles="ack -l" # Renamed from 文件内找
 
+# Alias to change to the real physical directory (resolving symlinks)
+alias cdp="cd -P ." # Renamed from 实际
+alias lsp="pwd -P"
 
 # --- Package & Environment Management ---
 
@@ -216,25 +218,32 @@ echo "[Info] Reload configuration using: sx"
 
 # Base rsync alias (might be more useful as a function if arguments vary)
 alias rsync_pull="rsync -avz --progress -e ssh" # Added compression and progress
+alias pull='rsync -az --info=progress2 --no-inc-recursive -e ssh'
+
 # Example Usage: rsync_pull user@host:/remote/path /local/path
 
 # Specific alias to pull 's' directory from 'a800t' and reload bashrc
-alias pull_s_a800t="rsync -avz --progress -e ssh a800t:~/s/ \"$HOME/s/\" && sx" # Note trailing slashes for directory content sync
+alias pull_s="rsync -avz --progress -e ssh 3090raw:~/s/ \"$HOME/s/\" && sx" # Note trailing slashes for directory content sync
+alias pull_sshconfig="rsync -avz --progress -e ssh 3090raw:~/.ssh/config ~/.ssh/config"
 echo "[Info] Pull ~/s from a800t and reload: pull_s_a800t"
 
 # --- Hugging Face Downloader ---
-alias hfdownload="$SCRIPT_ROOT/hf-fast.sh"
+alias hfdownload="bash $SCRIPT_ROOT/hf-fast.sh"
 
 # --- Startup Information ---
-
+chmod +x $SCRIPT_ROOT/chsrc-x64-linux
+alias chsrc="$SCRIPT_ROOT/chsrc-x64-linux"
+alias showdockers="bash $SCRIPT_ROOT/showdockers.sh"
+alias changemac="bash $SCRIPT_ROOT/changemac.sh"
+alias showbashhistory="bash $SCRIPT_ROOT/other_bash_history.sh"
 echo "-----------------------------------------------------"
 echo " Bash environment initialized. Key commands:"
-echo "   GPU/System: selectgpu, lsps,lsg,lsug, gput"
+echo "   GPU/System/Docker: selectgpu, lsps,lsg,lsug, gput"
 echo "   Dify Mgmt:  start_dify, update_dify, down_dify"
 echo "   Dev Tools:  tb, setpy (use carefully!)"
-echo "   Network:    fq, fqlog, forwardport <user@host> [remote_port]"
-echo "   File/Nav:   findname <pattern>, cdp, findinfiles <pattern>"
-echo "   Sync:       pull_s_a800t, rsync_pull <src> <dest>"
+echo "   Network:    chsrc,fq, fqlog,changmac, forwardport <user@host> [remote_port]"
+echo "   File/Nav:   findname <pattern>, findinfiles ,cdp, lsp "
+echo "   Sync:       pull_s_a800t, pull <src> <dest>"
 echo "   Package/Env: U <package>, sx, envok"
 echo "   Misc:       startA, sj, serv, hfdownload"
 echo "-----------------------------------------------------"
