@@ -80,6 +80,26 @@ def main():
 
     end_time = datetime.now()
     print("\nExecution Time: {:.2f} seconds".format((end_time - start_time).total_seconds()))
-
+    import matplotlib
+    print("matplotlib: {}".format(matplotlib.__version__))
+    from matplotlib.ft2font import FT2Font
+    def supports_cjk(font_path):
+        """检查字体是否支持中文（CJK）"""
+        try:
+            font = FT2Font(font_path)
+            # 检查是否包含常见中文字符（如“中”）和日文字符（如“本”）
+            return font.get_char_index(ord('中')) != 0 and font.get_char_index(ord('本')) != 0
+        except:
+            return False
+    # 筛选支持 CJK 的字体
+    cjk_fonts = []
+    for f in matplotlib.font_manager.fontManager.ttflist:
+        if supports_cjk(f.fname):
+            cjk_fonts.append(f.name)
+    print("✅ 支持中文/日文的字体：")
+    for font in sorted(cjk_fonts):
+        print(font)
+    matplotlib.rcParams['font.sans-serif'] = ['Heiti TC']  # 用黑体显示中文
+    matplotlib.rcParams['axes.unicode_minus'] = False  # 正确显示负号
 if __name__ == "__main__":
-    main()
+        main()

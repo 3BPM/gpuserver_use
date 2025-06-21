@@ -197,6 +197,28 @@ forwardport() {
 # Usage: findname '*pattern*'
 alias findname="find . -name" # Renamed from f
 
+MV() {
+    if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+        echo "Usage: MV [OPTIONS]"
+        echo "Wrapper for rsync with --partial and --progress enabled by default."
+        echo ""
+        echo "Options:"
+        echo "  -h, --help     Show this help message and exit"
+        echo ""
+        echo "Environment Variables:"
+        echo "  SRC            Source directory (trailing slash recommended)"
+        echo "  DEST           Destination directory (trailing slash recommended)"
+        return 0
+    fi
+
+    if [[ -z "$SRC" || -z "$DEST" ]]; then
+        echo "Error: Both SRC and DEST environment variables must be set." >&2
+        return 1
+    fi
+
+    rsync -avh --partial --progress "$SRC/" "$DEST/"
+}
+
 # Alias for ack (better grep for code) - find files containing pattern
 # Consider 'grep -rl PATTERN .' as a fallback if ack isn't installed
 alias findinfiles="ack -l" # Renamed from 文件内找
@@ -251,3 +273,16 @@ echo "-----------------------------------------------------"
 # List conda environments on shell startup (can be slow, uncomment if needed)
 # echo "Available Conda environments:"
 conda env list
+
+c() {
+    if [ $# -ne 1 ]; then
+        echo "请输入环境名称"
+    return 1
+    fi
+    if conda activate "$1"; then
+        envok
+    else
+        echo "激活失败..."
+        return 1
+    fi
+}
