@@ -83,6 +83,8 @@ def main():
     import matplotlib
     print("matplotlib: {}".format(matplotlib.__version__))
     from matplotlib.ft2font import FT2Font
+    import matplotlib.font_manager as fm
+
     def supports_cjk(font_path):
         """检查字体是否支持中文（CJK）"""
         try:
@@ -93,10 +95,10 @@ def main():
             return False
     # 筛选支持 CJK 的字体
     cjk_fonts = []
-    for f in matplotlib.font_manager.fontManager.ttflist:
+    for f in fm.fontManager.ttflist:
         if supports_cjk(f.fname):
             cjk_fonts.append(f.name)
-    print("✅ 支持中文/日文的字体：")
+    print("✅ matplotlib.rcParams['font.sans-serif'] = ['Noto Sans CJK JP']\n支持中文/日文的字体：")
     for font in sorted(cjk_fonts):
         print(font)
     matplotlib.rcParams['font.sans-serif'] = ['Heiti TC']  # 用黑体显示中文
