@@ -116,7 +116,7 @@ tb() {
 
     echo "Starting TensorBoard on port $port with logdir: $logdir"
     # Run in background, redirect stdout/stderr to /dev/null to avoid cluttering terminal
-    tensorboard --logdir "$logdir" --port "$port" > /dev/null 2>&1 &
+    python -m tensorboard.main --logdir "$logdir" --port "$port" > /dev/null 2>&1 &
     # Give it a moment to start
     sleep 1
     echo "TensorBoard launched in background. Access at: http://localhost:$port"
