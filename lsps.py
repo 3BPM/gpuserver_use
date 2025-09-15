@@ -164,7 +164,7 @@ def main():
     parser.add_argument("-du", "--directory_use", type=str, help="进程占用目录")
 
     parser.add_argument("-d", "--directory", type=str, help="进程运行目录")
-    # 修改 -l 参数，使其可以接受可选的端口号
+    parser.add_argument("-i", "--interface",nargs='?', const=True, type=str, help="网络接口。不带参数时自动选择")
     parser.add_argument("-p", "--listening", nargs='?', const=True, type=int,
                        help="查看监听的端口。不带参数时显示所有端口，带数字参数时显示指定端口的进程信息")
     args = parser.parse_args()
@@ -207,6 +207,16 @@ def main():
                 for f in p['open_files']:
                     print(f"  - {f}")
                 print("-" * 40)
+    if args.interface is not None:
+        import lsotherpc
+        # 如果传入了具体的接口名，将其传递给 lsotherpc
+        if isinstance(args.interface, str) and args.interface.lower() != 'true':
+            # 这里可以添加代码将接口名传递给 lsotherpc
+            lsotherpc.main(args.interface)
+        else:
+            # 自动选择接口
+            lsotherpc.main()
+
     else:
         if not any([args.pid, args.cmd, args.directory]):
             args.cmd = "python"

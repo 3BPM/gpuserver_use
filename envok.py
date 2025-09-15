@@ -75,6 +75,65 @@ def main():
         print("Total Memory: {:.1f} GB".format(mem.total / (1024.0**3)))
         print("Available Memory: {:.1f} GB".format(mem.available / (1024.0**3)))
         print("CPU Cores: {}".format(psutil.cpu_count()))
+        
+        # 获取CPU型号信息
+        print("CPU Model:", end=" ")
+        try:
+            # 针对不同操作系统使用不同方法
+            if platform.system() == "Linux":
+                # 对于Linux系统，读取/proc/cpuinfo文件
+                try:
+                    with open("/proc/cpuinfo", "r") as f:
+                        for line in f:
+                            if line.startswith("model name"):
+                                cpu_model = line.split(":")[1].strip()
+                                print(cpu_model)
+                                break
+                except Exception:
+                    print("Failed to read /proc/cpuinfo")
+            elif platform.system() == "Windows":
+                # 对于Windows系统，使用wmic命令
+                import subprocess
+                try:
+                    # 使用shell=True确保在Windows上正常工作
+                    cmd = "wmic cpu get name /format:list"
+                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                    if result.returncode == 0:
+                        output = result.stdout.strip()
+                        if output:
+                            for line in output.split('\n'):
+                                if line.startswith("Name="):
+                                    cpu_model = line.split("=")[1].strip()
+                                    print(cpu_model)
+                                    break
+                            else:
+                                # 如果没有以"Name="开头的行，尝试直接获取第二行
+                                lines = output.split('\n')
+                                if len(lines) > 1:
+                                    print(lines[1].strip())
+                                else:
+                                    print("Unknown")
+                    else:
+                        print("Command execution failed")
+                except Exception as e:
+                    print(f"Error: {str(e)}")
+                    # 尝试另一种方法
+                    try:
+                        import winreg
+                        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\CentralProcessor\0") as key:
+                            cpu_model = winreg.QueryValueEx(key, "ProcessorNameString")[0]
+                            print(cpu_model)
+                    except Exception:
+                        print("Unknown")
+            else:
+                # 对于其他系统，尝试使用platform.processor()
+                cpu_processor = platform.processor()
+                if cpu_processor and cpu_processor != "":
+                    print(cpu_processor)
+                else:
+                    print("Unknown")
+        except Exception as e:
+            print(f"Unknown (Error: {str(e)})")
     except ImportError:
         print("psutil: Not Installed")
 
