@@ -254,7 +254,7 @@ alias hfdownload="bash $SCRIPT_ROOT/hf-fast.sh"
 
 # --- Startup Information ---
 chmod +x $SCRIPT_ROOT/chsrc-x64-linux
-alias chsrc="$SCRIPT_ROOT/chsrc-x64-linux"
+alias chsrc="sudo $SCRIPT_ROOT/chsrc-x64-linux"
 alias showdockers="bash $SCRIPT_ROOT/showdockers.sh"
 alias changemac="bash $SCRIPT_ROOT/changemac.sh"
 alias showbashhistory="bash $SCRIPT_ROOT/other_bash_history.sh"
@@ -285,4 +285,7 @@ c() {
         echo "激活失败..."
         return 1
     fi
+}
+dr() {
+  docker exec -it "$1" bash
 }

@@ -2,7 +2,8 @@ import psutil
 import argparse
 import os
 from typing import List, Dict
-def get_process_info(pid=None, cmd_name=None, proc_directory=None):
+
+def get_process_info(pid=None, cmd_name=None, proc_directory=None):  #进程筛选器
     """
     根据 PID、命令名或进程名查找匹配的进程。
 
@@ -18,7 +19,7 @@ def get_process_info(pid=None, cmd_name=None, proc_directory=None):
     processes = []
     for proc in psutil.process_iter(['pid', 'name', 'username', 'cmdline', 'cwd']):
         try:
-            if pid and proc.info['pid'] == pid:  # Changed 'in' to '=='
+            if pid and proc.info['pid'] == pid:  # 根据 PID 查找
                 processes.append(proc.info)
             elif cmd_name and cmd_name in ' '.join(proc.info['cmdline'] or []):
                 processes.append(proc.info)
@@ -40,6 +41,9 @@ def get_process_info(pid=None, cmd_name=None, proc_directory=None):
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
     return processes
+
+
+
 
 def print_process_info(processes):
     """
@@ -67,6 +71,41 @@ def print_process_info(processes):
         print(f"具体命令: {cmdline}")
         print(f"用户: {username}")
         print("-" * 40)
+
+
+def get_parent_process_chain(pid):
+    """
+    获取从指定PID到根进程的父进程链
+    类似 pstree -sp 的功能
+    """
+    process_chain = []
+    current_pid = pid
+
+    try:
+        while current_pid != 0 and current_pid is not None:
+            proc = psutil.Process(current_pid)
+            process_info = {
+                'pid': proc.pid,
+                'name': proc.name(),
+                'cmdline': ' '.join(proc.cmdline()) if proc.cmdline() else proc.name(),
+                'status': proc.status()
+            }
+            process_chain.append(process_info)
+
+            # 获取父进程PID
+            current_pid = proc.ppid()
+
+            # 防止无限循环（有些情况下ppid可能指向自己）
+            if current_pid in [p['pid'] for p in process_chain]:
+                break
+
+    except psutil.NoSuchProcess:
+        process_chain.append({'pid': current_pid, 'name': '[进程不存在]', 'cmdline': '[进程不存在]', 'status': 'unknown'})
+    except psutil.AccessDenied:
+        process_chain.append({'pid': current_pid, 'name': '[权限不足]', 'cmdline': '[权限不足]', 'status': 'unknown'})
+
+    return process_chain
+
 
 
 def find_processes_using_directory(directory: str) -> List[Dict]:
@@ -159,7 +198,7 @@ def print_listening_ports(ports):
 def main():
     # 设置命令行参数解析
     parser = argparse.ArgumentParser(description="通过 PID、命令名或进程名查找进程")
-    parser.add_argument("-id", "--pid", type=int, help="进程 ID")
+    parser.add_argument("-id", "--tree_pid", type=int, help="进程 ID")
     parser.add_argument("-c", "--cmd", type=str, help="命令名或命令行的一部分")#,default="python"
     parser.add_argument("-du", "--directory_use", type=str, help="进程占用目录")
 
@@ -167,7 +206,9 @@ def main():
     parser.add_argument("-i", "--interface",nargs='?', const=True, type=str, help="网络接口。不带参数时自动选择")
     parser.add_argument("-p", "--listening", nargs='?', const=True, type=int,
                        help="查看监听的端口。不带参数时显示所有端口，带数字参数时显示指定端口的进程信息")
+    parser.add_argument("-v", "--verbose", action="store_true", help="详细模式")
     args = parser.parse_args()
+    #preprocess
     if args.directory:
         # 将传入的目录转换为绝对路径
         args.directory = os.path.abspath(args.directory)
@@ -178,6 +219,9 @@ def main():
         args.directory_use = os.path.abspath(args.directory_use)
         print(f"目录参数已转换为绝对路径：{args.directory_use}")
 
+
+
+    #开始处理
     if args.listening is not None:
         if isinstance(args.listening, bool):
             # 不带参数的 -p，显示所有端口
@@ -207,7 +251,7 @@ def main():
                 for f in p['open_files']:
                     print(f"  - {f}")
                 print("-" * 40)
-    if args.interface is not None:
+    elif args.interface is not None:
         import lsotherpc
         # 如果传入了具体的接口名，将其传递给 lsotherpc
         if isinstance(args.interface, str) and args.interface.lower() != 'true':
@@ -216,11 +260,47 @@ def main():
         else:
             # 自动选择接口
             lsotherpc.main()
+    elif args.tree_pid is not None:
+        pid=args.tree_pid
+        processes=get_process_info(pid)
+        print_process_info(processes)
+        process_chain = get_parent_process_chain(pid)
+        process_chain.reverse()  # 从根进程开始
+
+
+        # # 构建输出字符串
+        # chain_str = "systemd" if process_chain and process_chain[0]['pid'] == 1 else ""
+        # for proc in process_chain:
+        #     if chain_str:
+        #         chain_str += "---"
+        #     chain_str += f"{proc['name']}({proc['pid']})"
+        # print(chain_str)
+
+
+        # 显示进程链
+        for i, proc in enumerate(process_chain):
+            indent = "  " * i
+            arrow = "└─ " if i == len(process_chain) - 1 else "├─ "
+
+            if args.verbose:
+                display_text = proc['cmdline']
+            else:
+                display_text = proc['name']
+
+            status_info = f" [{proc['status']}]" if proc['status'] != 'running' and proc['status'] != 'unknown' else ""
+
+            print(f"{indent}{arrow}{proc['pid']}: {display_text}{status_info}")
+
+
+
+
+
+
 
     else:
-        if not any([args.pid, args.cmd, args.directory]):
+        if not any([args.tree_pid, args.cmd, args.directory,args.directory_use,args.listening,args.interface]):
             args.cmd = "python"
-        processes = get_process_info(pid=args.pid, cmd_name=args.cmd, proc_directory=args.directory)
+        processes = get_process_info( cmd_name=args.cmd, proc_directory=args.directory)
         print_process_info(processes)
 if __name__ == "__main__":
     main()
