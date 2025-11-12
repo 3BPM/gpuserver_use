@@ -264,8 +264,8 @@ echo "   GPU/System/Docker: selectgpu, lsps,lsg,lsug, gput"
 echo "   Dify Mgmt:  start_dify, update_dify, down_dify"
 echo "   Dev Tools:  tb, setpy (use carefully!)"
 echo "   Network:    chsrc,fq, fqlog,changmac, forwardport <user@host> [remote_port]"
-echo "   File/Nav:   findname <pattern>, findinfiles ,cdp, lsp "
-echo "   Sync:       pull_s_a800t, pull <src> <dest>"
+echo "   File/Nav:   findname <pattern>,findinfiles ,cdp, lsp,l=listtime"
+echo "   Sync:       MV,pull_s_a800t, pull <src> <dest>"
 echo "   Package/Env: U <package>, sx, envok"
 echo "   Misc:       startA, sj, serv, hfdownload"
 echo "-----------------------------------------------------"
@@ -289,3 +289,5 @@ c() {
 dr() {
   docker exec -it "$1" bash
 }
+alias l="ls -lt"
+alias rs="python \"$SCRIPT_ROOT/runscript.py\""
