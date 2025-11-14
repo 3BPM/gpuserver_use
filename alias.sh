@@ -264,7 +264,7 @@ echo "   GPU/System/Docker: selectgpu, lsps,lsg,lsug, gput"
 echo "   Dify Mgmt:  start_dify, update_dify, down_dify"
 echo "   Dev Tools:  tb, setpy (use carefully!)"
 echo "   Network:    chsrc,fq, fqlog,changmac, forwardport <user@host> [remote_port]"
-echo "   File/Nav:   findname <pattern>,findinfiles ,cdp, lsp,l=listtime"
+echo "   File/Nav:   findname <pattern>,findinfiles ,cdp, lsp,l=listtime,d=lssize"
 echo "   Sync:       MV,pull_s_a800t, pull <src> <dest>"
 echo "   Package/Env: U <package>, sx, envok"
 echo "   Misc:       startA, sj, serv, hfdownload"
@@ -287,7 +287,16 @@ c() {
     fi
 }
 dr() {
-  docker exec -it "$1" bash
+    docker exec -it "$1" bash
 }
+#按照时间看文件 方便看最近忘了啥
 alias l="ls -lt"
+d() {
+    for f in *; do
+    du -sh "$f" | awk '{print $1}'  # 获取大小
+    ls -ld --time-style=long-iso "$f" | awk '{print $6, $7, $8, $9}'  # 获取修改时间和文件名
+    done | paste -d ' ' - - | sort -k1,1hr
+}
+
+#加入gpu抢卡默认1.sh
 alias rs="python \"$SCRIPT_ROOT/runscript.py\""
