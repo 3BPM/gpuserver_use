@@ -289,7 +289,7 @@ c() {
 dr() {
     docker exec -it "$1" bash
 }
-#按照时间看文件 方便看最近忘了啥
+
 alias l="ls -lt"
 d() {
     for f in *; do
