@@ -291,6 +291,36 @@ dr() {
 }
 
 alias l='ls -lta | tail -n +2; echo "=== 统计信息 ==="; files=$(ls -A | wc -l); dirs=$(find . -maxdepth 1 -type d ! -name "." | wc -l); echo "总条目数: $files | 文件夹: $dirs | 文件: $((files - dirs))"'
+
+# 将此函数放入 ~/.bashrc 或 ~/.zshrc
+function lt3() {
+    echo "正在扫描子目录 (深度: 3)..."
+
+    # 遍历当前目录下的每一个文件/文件夹
+    for item in *; do
+        # 跳过不存在的文件（处理空目录通配符情况）
+        [ -e "$item" ] || continue
+
+        # 核心逻辑：
+        # 1. find "$item": 在当前item内部查找
+        # 2. -maxdepth 3: 限制递归深度为3层
+        # 3. -printf: 打印 "秒级时间戳(用于排序) 人类可读时间"
+        # 4. sort -rn | head -n 1: 找出内部所有文件中最新的那个时间
+
+        latest_info=$(find "$item" -maxdepth 3 -printf "%T@ %TY-%Tm-%Td_%TH:%TM:%S\n" 2>/dev/null | sort -rn | head -n 1)
+
+        # 提取时间戳用于总排序，提取格式化时间用于显示
+        # 输出格式: [时间戳] [格式化时间] [文件名/文件夹名]
+        if [ -n "$latest_info" ]; then
+             # 拆分 find 的结果
+             timestamp=$(echo "$latest_info" | awk '{print $1}')
+             humantime=$(echo "$latest_info" | awk '{print $2}')
+
+             # 输出一行，稍后用于整体排序
+             echo "$timestamp $humantime $item"
+        fi
+    done | sort -rn | awk '{printf "\033[32m%s\033[0m  \033[1m%s\033[0m\n", $2, $3}'
+}
 d() {
     for f in *; do
     du -sh "$f" | awk '{print $1}'  # 获取大小
