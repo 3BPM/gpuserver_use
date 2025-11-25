@@ -290,7 +290,7 @@ dr() {
     docker exec -it "$1" bash
 }
 
-alias l="ls -lt"
+alias l='ls -lta | tail -n +2; echo "=== 统计信息 ==="; files=$(ls -A | wc -l); dirs=$(find . -maxdepth 1 -type d ! -name "." | wc -l); echo "总条目数: $files | 文件夹: $dirs | 文件: $((files - dirs))"'
 d() {
     for f in *; do
     du -sh "$f" | awk '{print $1}'  # 获取大小
