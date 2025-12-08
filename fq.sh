@@ -1,6 +1,11 @@
-#要在后台运行 ./clash -d . 并将错误输出重定向到 fanqianglog 文件中，可以使用以下命令：
+#首要安装
+#pip install -U git+https://github.com/KT-Yeh/mihomo.git
+SCRIPT_ROOT="$HOME/s"
+#要在后台运行 ./verge-mihomo -d . 并将错误输出重定向到 fanqianglog 文件中，可以使用以下命令：
 
-#~/a/fanqiang/clash -d . 2> fanqianglog &
+
+
+#~/a/fanqiang/verge-mihomo -d . 2> fanqianglog &
 #2>: 这是重定向标准错误流（文件描述符 2）的语法。
 
 
@@ -11,17 +16,17 @@
 export HTTP_PROXY="http://127.0.0.1:7890"
 export HTTPS_PROXY="http://127.0.0.1:7890"
 
-cd /home/jinyue/s/fanqiang/
+cd "${SCRIPT_ROOT}/fanqiang"
 
 # 执行命令并将输出重定向到 fanqianglog
 # 检查端口 7890 是否被占用
 if ! lsof -i :7890 -sTCP:LISTEN > /dev/null 2>&1; then
-    echo "端口 7890 未被占用，正在启动 clash..."
-    echo "$(date '+%Y-%m-%d %H:%M:%S') 开始" > logfanqiang    # 启动 clash 程序，并将输出重定向到日志文件
-    ./clash -d . >> logfanqiang 2>&1 &
+    echo "端口 7890 未被占用，正在启动 verge-mihomo..."
+    echo "$(date '+%Y-%m-%d %H:%M:%S') 开始" > logfanqiang    # 启动 verge-mihomo 程序，并将输出重定向到日志文件
+    verge-mihomo -d . >> logfanqiang 2>&1 &
     PID=$!
     echo "进程的 PID: $PID"
-    echo "clash 已启动，日志输出到 logfanqiang 文件。"
+    echo "verge-mihomo 已启动，日志输出到 logfanqiang 文件。"
 else
     echo "端口 7890 已被占用，无法启动 clash。"
     lsof -i :7890 -sTCP:LISTEN
