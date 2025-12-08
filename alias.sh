@@ -59,12 +59,16 @@ down_dify() {
     fi
 }
 
-# --- Development & Monitoring Tools ---
+# 在脚本开头检测 sudo
+SUDO_PREFIX=""
+if sudo -l &>/dev/null; then
+    SUDO_PREFIX="sudo"
+fi
 
-# Alias to list processes (requires sudo, be careful)
-alias lsps="sudo python3 \"$SCRIPT_ROOT/lsps.py\""
-alias lsg="sudo python3 \"$SCRIPT_ROOT/lsgroup.py\""
-alias lsug="sudo python3 \"$SCRIPT_ROOT/lsuser_sgroup.py\""
+# 使用变量
+alias lsps="$SUDO_PREFIX python3 \"$SCRIPT_ROOT/lsps.py\""
+alias lsg="$SUDO_PREFIX python3 \"$SCRIPT_ROOT/lsgroup.py\""
+alias lsug="$SUDO_PREFIX python3 \"$SCRIPT_ROOT/lsuser_sgroup.py\""
 
 # Function to switch the 'python' alias (Use with caution!)
 # Example: setpy /usr/bin/python3.9
