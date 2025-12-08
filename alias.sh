@@ -59,16 +59,41 @@ down_dify() {
     fi
 }
 
-# 在脚本开头检测 sudo
-SUDO_PREFIX=""
-if sudo -l &>/dev/null; then
-    SUDO_PREFIX="sudo"
-fi
+# 在 .bashrc 中只检测一次并缓存
+_SUDO_CACHE_FILE="$HOME/.sudo_as_admin_successful"
 
-# 使用变量
-alias lsps="$SUDO_PREFIX python3 \"$SCRIPT_ROOT/lsps.py\""
-alias lsg="$SUDO_PREFIX python3 \"$SCRIPT_ROOT/lsgroup.py\""
-alias lsug="$SUDO_PREFIX python3 \"$SCRIPT_ROOT/lsuser_sgroup.py\""
+# 检测并缓存结果
+_check_sudo_access() {
+    # 如果已经是 root
+    [ "$EUID" -eq 0 ] && { echo "root"; return; }
+
+    # 检查缓存（1小时有效）
+    if [ -f "$_SUDO_CACHE_FILE" ]; then
+        local cache_time=$(stat -c %Y "$_SUDO_CACHE_FILE" 2>/dev/null)
+        local now=$(date +%s)
+        if [ $((now - cache_time)) -lt 3600 ]; then
+            cat "$_SUDO_CACHE_FILE"
+            return
+        fi
+    fi
+
+    # 实际检测
+    if sudo -n true 2>/dev/null; then
+        echo "sudo" > "$_SUDO_CACHE_FILE"
+        echo "sudo"
+    else
+        echo "" > "$_SUDO_CACHE_FILE"
+        echo ""
+    fi
+}
+
+# 在 bashrc 加载时检测一次
+SUDO_PREFIX="$(_check_sudo_access)"
+
+# 定义别名
+alias lsps="${SUDO_PREFIX:+sudo }python3 \"$SCRIPT_ROOT/lsps.py\""
+alias lsg="${SUDO_PREFIX:+sudo }python3 \"$SCRIPT_ROOT/lsgroup.py\""
+alias lsug="${SUDO_PREFIX:+sudo }python3 \"$SCRIPT_ROOT/lsuser_sgroup.py\""
 
 # Function to switch the 'python' alias (Use with caution!)
 # Example: setpy /usr/bin/python3.9
