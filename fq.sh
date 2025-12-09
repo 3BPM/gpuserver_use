@@ -23,7 +23,7 @@ cd "${SCRIPT_ROOT}/fanqiang"
 if ! lsof -i :7890 -sTCP:LISTEN > /dev/null 2>&1; then
     echo "端口 7890 未被占用，正在启动 verge-mihomo..."
     echo "$(date '+%Y-%m-%d %H:%M:%S') 开始" > logfanqiang    # 启动 verge-mihomo 程序，并将输出重定向到日志文件
-    verge-mihomo -d . >> logfanqiang 2>&1 &
+    ./verge-mihomo -d . >> logfanqiang 2>&1 &
     PID=$!
     echo "进程的 PID: $PID"
     echo "verge-mihomo 已启动，日志输出到 logfanqiang 文件。"
