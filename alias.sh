@@ -145,7 +145,8 @@ tb() {
 
     echo "Starting TensorBoard on port $port with logdir: $logdir"
     # Run in background, redirect stdout/stderr to /dev/null to avoid cluttering terminal
-    python -m tensorboard.main --logdir "$logdir" --port "$port" > /dev/null 2>&1 &
+    #python -m tensorboard.main --logdir "$logdir" --port "$port" > /dev/null 2>&1 &
+    tensorboard --logdir "$logdir" --port "$port" > /dev/null 2>&1 &
     # Give it a moment to start
     sleep 1
     echo "TensorBoard launched in background. Access at: http://localhost:$port"
@@ -227,25 +228,158 @@ forwardport() {
 alias findname="find . -name" # Renamed from f
 
 MV() {
-    if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-        echo "Usage: MV [OPTIONS]"
-        echo "Wrapper for rsync with --partial and --progress enabled by default."
-        echo ""
-        echo "Options:"
-        echo "  -h, --help     Show this help message and exit"
-        echo ""
-        echo "Environment Variables:"
-        echo "  SRC            Source directory (trailing slash recommended)"
-        echo "  DEST           Destination directory (trailing slash recommended)"
-        return 0
-    fi
+    local src="" dest="" dry_run=false verbose=false
 
-    if [[ -z "$SRC" || -z "$DEST" ]]; then
-        echo "Error: Both SRC and DEST environment variables must be set." >&2
+    # 解析参数
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -h|--help)
+                cat << 'EOF'
+Usage: MV [OPTIONS] <source> <destination>
+
+Simulates Windows-style "Move and Merge":
+- Moves files from source to destination.
+- Overwrites files in destination if they have the same name.
+- KEEPS files in destination that do not exist in source (Merge).
+- Deletes source files/directories after successful transfer.
+
+Options:
+  -h, --help       Show this help message and exit
+  -n, --dry-run    Perform a trial run without making changes
+  -v, --verbose    Show detailed output
+EOF
+                return 0
+                ;;
+            -n|--dry-run)
+                dry_run=true
+                shift
+                ;;
+            -v|--verbose)
+                verbose=true
+                shift
+                ;;
+            -*)
+                echo "Unknown option: $1" >&2
+                return 1
+                ;;
+            *)
+                if [[ -z "$src" ]]; then
+                    src="$1"
+                elif [[ -z "$dest" ]]; then
+                    dest="$1"
+                else
+                    echo "Error: Too many arguments." >&2
+                    return 1
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    # 检查参数
+    if [[ -z "$src" || -z "$dest" ]]; then
+        echo "Error: Both source and destination must be specified." >&2
         return 1
     fi
 
-    rsync -avh --partial --progress "$SRC/" "$DEST/"
+    if [[ ! -d "$src" ]]; then
+        echo "Error: Source directory does not exist: $src" >&2
+        return 1
+    fi
+
+    # 规范化路径：确保 src 和 dest 都以 / 结尾
+    # 这对于将 src 的内容合并到 dest 内部至关重要
+    src="${src%/}/"
+    dest="${dest%/}/"
+
+    # 检查目标目录
+    if [[ ! -d "$dest" ]]; then
+        echo "Destination directory does not exist: $dest"
+        if [[ "$dry_run" == true ]]; then
+            echo "(Dry-run) Would create directory: $dest"
+        else
+            read -p "Create it? (y/N): " confirm
+            if [[ $confirm =~ ^[Yy] ]]; then
+                mkdir -p "$dest"
+            else
+                echo "Aborted." >&2
+                return 1
+            fi
+        fi
+    fi
+
+    # ---------------------------------------------------------
+    # 构建 rsync 命令 (核心修改部分)
+    # ---------------------------------------------------------
+    local cmd=("rsync" "-avh"
+               "--partial"
+               "--info=progress2,name0"
+               "--remove-source-files"  # 关键：传输成功后删除源文件
+              )
+
+    # 注意：这里去掉了 --delete-after，因为你要的是合并而不是镜像
+
+    # 添加 verbose
+    [[ "$verbose" == true ]] && cmd+=("-v")
+
+    # 添加 dry-run
+    [[ "$dry_run" == true ]] && cmd+=("--dry-run")
+
+    # 添加排除项
+    cmd+=(
+        --exclude='*.tmp'
+        --exclude='__pycache__'
+        --exclude='*.log'
+        --exclude='*.backup'
+    )
+
+    # 添加源和目标
+    cmd+=("$src" "$dest")
+
+    # 输出调试信息
+    echo "---------------------------------------------------"
+    echo "Mode: Move & Merge (Windows Style)"
+    echo "From: $src"
+    echo "To:   $dest"
+    if [[ "$dry_run" == true ]]; then
+        echo "⚠️  DRY RUN MODE: No files will be moved or deleted."
+    fi
+    echo "Running: ${cmd[*]}"
+    echo "---------------------------------------------------"
+
+    # 这里的 sleep 可以保留，给你反悔的机会
+    sleep 2
+
+    # 执行 rsync
+    if "${cmd[@]}"; then
+        echo "✅ File transfer complete."
+
+        # ---------------------------------------------------------
+        # 后处理：清理源目录的空骨架
+        # ---------------------------------------------------------
+        # rsync --remove-source-files 只删文件，不删目录。
+        # 我们需要手动清理 src 中已经变空的目录。
+
+        if [[ "$dry_run" == false ]]; then
+            echo "🧹 Cleaning up empty directories in source..."
+            # -depth 确保先删子目录再删父目录
+            # 2>/dev/null 忽略那些因为排除文件导致目录非空的报错
+            find "$src" -depth -type d -empty -delete 2>/dev/null
+
+            # 检查源目录是否完全消失（如果所有文件都移走了）
+            if [[ ! -d "$src" ]]; then
+                echo "✨ Source directory removed completely."
+            else
+                echo "⚠️  Source directory still exists (likely contains excluded files)."
+            fi
+        else
+            echo "(Dry-run) Would remove empty directories in: $src"
+        fi
+
+    else
+        echo "❌ Failed: rsync command returned error." >&2
+        return 1
+    fi
 }
 
 # Alias for ack (better grep for code) - find files containing pattern
