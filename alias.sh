@@ -225,7 +225,59 @@ forwardport() {
 
 # Alias for find: find file by name in current directory downwards
 # Usage: findname '*pattern*'
-alias findname="find . -name" # Renamed from f
+alias fn="find . -name" # Renamed from f
+#!/bin/bash
+
+# 定义函数
+td() {
+    local path="${1:-.}"
+    local indent="${2:-0}"
+    local prefix="${3:-}"
+
+    # 只处理目录
+    if [[ -d "$path" ]]; then
+        # 获取当前目录的文件数（不包括目录本身）
+        local file_count
+        if [[ "$(uname)" == "Darwin" ]]; then
+            # macOS 的 find 需要额外处理
+            file_count=$(find "$path" -maxdepth 1 -type f ! -name ".*" 2>/dev/null | wc -l)
+        else
+            file_count=$(find "$path" -maxdepth 1 -type f -printf '.' 2>/dev/null | wc -c)
+        fi
+
+        # 计算目录数（不包括 . 和 ..）
+        local dir_count
+        dir_count=$(find "$path" -maxdepth 1 -type d ! -path "$path" 2>/dev/null | wc -l)
+
+        # 打印当前目录信息
+        local indent_str=""
+        for ((i=0; i<indent; i++)); do
+            indent_str+="    "
+        done
+
+        echo "${indent_str}${prefix}$(basename "$path")/ [文件: ${file_count}, 目录: ${dir_count}]"
+
+        # 递归处理子目录
+        local items=()
+        while IFS= read -r -d $'\0' item; do
+            items+=("$item")
+        done < <(find "$path" -maxdepth 1 -type d ! -path "$path" -print0 2>/dev/null | sort -z)
+
+        local count=0
+        local total=${#items[@]}
+
+        for item in "${items[@]}"; do
+            count=$((count + 1))
+            local new_prefix="├── "
+            if [[ $count -eq $total ]]; then
+                new_prefix="└── "
+            fi
+
+            tree-d "$item" $((indent + 1)) "$new_prefix"
+        done
+    fi
+}
+
 
 MV() {
     local src="" dest="" dry_run=false verbose=false
@@ -427,7 +479,7 @@ echo "   GPU/System/Docker: selectgpu, lsps,lsg,lsug, gput"
 echo "   Dify Mgmt:  start_dify, update_dify, down_dify"
 echo "   Dev Tools:  tb, setpy (use carefully!)"
 echo "   Network:    chsrc,fq, fqlog,changmac, forwardport <user@host> [remote_port]"
-echo "   File/Nav:   findname <pattern>,findinfiles ,cdp, lsp,l=listtime,d=lssize"
+echo "   File/Nav:   fn=findname td=treed,findinfiles ,cdp, lsp,l=listtime,d=lssize"
 echo "   Sync:       MV,pull_s_a800t, pull <src> <dest>"
 echo "   Package/Env: U <package>, sx, envok"
 echo "   Misc:       startA, sj, serv, hfdownload"
