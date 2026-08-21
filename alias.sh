@@ -94,7 +94,7 @@ SUDO_PREFIX="$(_check_sudo_access)"
 alias lsps="${SUDO_PREFIX:+sudo }python3 \"$SCRIPT_ROOT/lsps.py\""
 alias lsg="${SUDO_PREFIX:+sudo }python3 \"$SCRIPT_ROOT/lsgroup.py\""
 alias lsug="${SUDO_PREFIX:+sudo }python3 \"$SCRIPT_ROOT/lsuser_sgroup.py\""
-
+alias lsgpu="${SUDO_PREFIX:+sudo }python3 \"$SCRIPT_ROOT/lswhousegpu.py "
 # Function to switch the 'python' alias (Use with caution!)
 # Example: setpy /usr/bin/python3.9
 # Warning: Overriding the default 'python' can break system scripts.
@@ -273,7 +273,7 @@ td() {
                 new_prefix="└── "
             fi
 
-            tree-d "$item" $((indent + 1)) "$new_prefix"
+            td "$item" $((indent + 1)) "$new_prefix"
         done
     fi
 }
